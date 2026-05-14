@@ -43,7 +43,7 @@ public class Voronoi3D : MonoBehaviour
                 MyPlane plane = new MyPlane(dir, mid);
 
                 int id = _bisectorPlanes.Count;
-                _bisectorPlanes.Add(new BisectorPlane(i, j, plane));
+                _bisectorPlanes.Add(new BisectorPlane(i, j, plane, mid));
                 _nodePlaneMap[i].Add(id);
                 _nodePlaneMap[j].Add(id);
             }
@@ -67,8 +67,7 @@ public class Voronoi3D : MonoBehaviour
         for (int k = 0; k < _nodes.Length; k++)
         {
             if (k == i || k == j) continue;
-            float dist = Vec3.Distance(_nodes[k], center);
-            if (dist <= radius) return false;
+            if (Vec3.Distance(_nodes[k], center) <= radius) return false;
         }
         return true;
     }
@@ -81,7 +80,7 @@ public class Voronoi3D : MonoBehaviour
         {
             BisectorPlane bp = _bisectorPlanes[pi];
             float dist = bp.Plane.GetDistanceToPoint(point);
-            bool onNodeSide = nodeIndex == bp.NodeA ? dist >= 0f : dist <= 0f;
+            bool onNodeSide = nodeIndex == bp.NodeA ? dist <= 0f : dist >= 0f;
             if (!onNodeSide) return false;
         }
         return true;
@@ -126,11 +125,13 @@ public struct BisectorPlane
     public int NodeA;
     public int NodeB;
     public MyPlane Plane;
+    public Vec3 Midpoint;
 
-    public BisectorPlane(int a, int b, MyPlane plane)
+    public BisectorPlane(int a, int b, MyPlane plane, Vec3 midpoint)
     {
         NodeA = a;
         NodeB = b;
         Plane = plane;
+        Midpoint = midpoint;
     }
 }
