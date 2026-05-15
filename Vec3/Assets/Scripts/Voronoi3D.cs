@@ -35,9 +35,6 @@ public class Voronoi3D : MonoBehaviour
         {
             for (int j = i + 1; j < _nodes.Length; j++)
             {
-                if (!IsGabrielEdge(i, j))
-                    continue;
-
                 Vec3 dir = _nodes[j] - _nodes[i];
                 Vec3 mid = (_nodes[i] + _nodes[j]) * 0.5f;
                 MyPlane plane = new MyPlane(dir, mid);
@@ -57,19 +54,6 @@ public class Voronoi3D : MonoBehaviour
         for (int i = 0; i < nodeTransforms.Length; i++)
             arr[i] = new Vec3(nodeTransforms[i].position);
         return arr;
-    }
-
-    private bool IsGabrielEdge(int i, int j)
-    {
-        Vec3 center = (_nodes[i] + _nodes[j]) * 0.5f;
-        float radius = Vec3.Distance(_nodes[i], center);
-
-        for (int k = 0; k < _nodes.Length; k++)
-        {
-            if (k == i || k == j) continue;
-            if (Vec3.Distance(_nodes[k], center) <= radius) return false;
-        }
-        return true;
     }
 
     public bool IsPointInCell(int nodeIndex, Vec3 point)
