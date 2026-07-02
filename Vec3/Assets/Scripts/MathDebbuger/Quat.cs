@@ -132,6 +132,9 @@ public struct Quat
 	// k = sqrt(-1)
 	// k * k = -1
 	//
+	//Producto cruz entre i & j me da k
+	//i*j*k = -1
+	//-1 + -1 + -1
 	// i * j = k		j * k = i		k * i = j
 	//
 	// j * i = -k		k * j = -i			i * k = -j
@@ -436,7 +439,8 @@ public struct Quat
 		float dot = Dot(a, b);
 
 		if (dot < 0f) // camino largo o camino corto para la rotación?
-		{
+						//si el ángulo es más agudo quie obtuso
+		{				//Si es obtuso, niego al quaternion y al producto punto para volver al camino más corto
 			b = new Quat(-b.x, -b.y, -b.z, -b.w);
 			dot = -dot; // necesitamos que el dot sea positivo para el acos
 		}
