@@ -8,7 +8,15 @@ using UnityEngine;
 public class RubikController : MonoBehaviour
 {
 	// Cada cara es un eje local + una capa (+1 / -1)
-	private enum Face { U, D, R, L, F, B }
+	private enum Face
+	{
+		U,
+		D,
+		R,
+		L,
+		F,
+		B
+	}
 
 	private class Cubie
 	{
@@ -20,7 +28,7 @@ public class RubikController : MonoBehaviour
 	public float turnDuration = 0.2f;
 
 	private readonly List<Cubie> cubies = new List<Cubie>();
-	private Vec3 pivot;    // centro del cubo en mundo
+	private Vec3 cubeCenter; // centro del cubo en mundo
 	private float spacing; // separacion entre capas en unidades de mundo
 	private Quat[] centerAccum; // rotacion total acumulada de cada centro
 	private bool isTurning;
@@ -64,17 +72,18 @@ public class RubikController : MonoBehaviour
 		Vec3 sum = Vec3.Zero;
 		foreach (MeshRenderer r in renderers)
 			sum += new Vec3(r.transform.position);
-		pivot = sum / renderers.Length;
+		cubeCenter = sum / renderers.Length;
 
 		// 2) Rango sobre el eje X local => separacion entre capas (grilla de 3 => -1,0,1)
 		float minR = float.MaxValue;
 		float maxR = float.MinValue;
 		foreach (MeshRenderer r in renderers)
 		{
-			float d = Vec3.Dot(new Vec3(r.transform.position) - pivot, right);
+			float d = Vec3.Dot(new Vec3(r.transform.position) - cubeCenter, right);
 			if (d < minR) minR = d;
 			if (d > maxR) maxR = d;
 		}
+
 		spacing = (maxR - minR) * 0.5f;
 		if (spacing < Vec3.epsilon)
 			spacing = 1f;
@@ -82,7 +91,7 @@ public class RubikController : MonoBehaviour
 		// 3) Proyecto el offset de cada pieza sobre los ejes del cubo y redondeo a {-1,0,1}
 		foreach (MeshRenderer r in renderers)
 		{
-			Vec3 offset = new Vec3(r.transform.position) - pivot;
+			Vec3 offset = new Vec3(r.transform.position) - cubeCenter;
 			float gx = Mathf.Round(Vec3.Dot(offset, right) / spacing);
 			float gy = Mathf.Round(Vec3.Dot(offset, up) / spacing);
 			float gz = Mathf.Round(Vec3.Dot(offset, forward) / spacing);
@@ -122,29 +131,28 @@ public class RubikController : MonoBehaviour
 
 		foreach (Cubie c in cubies)
 		{
+			//Selecciono todas las piezas cuyas posiciones estén proyectadas sobre la dirección de la capa que quiero
+			//mover
 			if (Mathf.RoundToInt(Vec3.Dot(c.grid, localAxis)) == layer)
 			{
 				layerCubies.Add(c);
-				startOffsets.Add(new Vec3(c.t.position) - pivot);
+				startOffsets.Add(new Vec3(c.t.position) - cubeCenter);
 				startRots.Add(new Quat(c.t.rotation));
 			}
 		}
 
 		// Animacion suave del giro de 90 grados
+		Quat target = Quat.AngleAxis(angle, worldAxis);
 		float elapsed = 0f;
 		while (elapsed < turnDuration)
 		{
 			elapsed += Time.deltaTime;
 			float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / turnDuration));
-			float a = Mathf.Lerp(0f, angle, u);
-			Quat step = Quat.AngleAxis(a, worldAxis);
+			Quat step = Quat.Slerp(Quat.identity, target, u);
 
 			for (int i = 0; i < layerCubies.Count; i++)
 			{
-				// aristas y vertices orbitan alrededor del centro (Quat * Vec3);
-				// el centro no se mueve porque su offset esta sobre el eje
-				layerCubies[i].t.position = pivot + step * startOffsets[i];
-				// todas las piezas (incluido el centro) rotan su orientacion (Quat * Quat)
+				layerCubies[i].t.position = cubeCenter + step * startOffsets[i];
 				layerCubies[i].t.rotation = step * startRots[i];
 			}
 
@@ -166,7 +174,7 @@ public class RubikController : MonoBehaviour
 			Vec3 rotated = gridStep * c.grid;
 			c.grid = new Vec3(Mathf.Round(rotated.x), Mathf.Round(rotated.y), Mathf.Round(rotated.z));
 
-			c.t.position = pivot + spacing * (c.grid.x * right + c.grid.y * up + c.grid.z * forward);
+			c.t.position = cubeCenter + spacing * (c.grid.x * right + c.grid.y * up + c.grid.z * forward);
 			c.t.rotation = finalStep * startRots[i];
 		}
 
