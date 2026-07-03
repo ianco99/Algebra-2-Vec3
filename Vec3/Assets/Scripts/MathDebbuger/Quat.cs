@@ -110,12 +110,19 @@ public struct Quat
 		return !(lhs == rhs);
 	}
 
+	//ROTAR un VECTOR3
+	/// <summary>
+	/// Rota un punto 3D con un quaternion.
+	/// </summary>
+	/// <param name="rotation"></param>
+	/// <param name="point"></param>
+	/// <returns></returns>
 	public static Vec3 operator *(Quat rotation, Vec3 point)
 	{
 		// q * v * q-1
 		// q * v = v' (v con w modificado)
 		// v' * q-1 = v'' (v con w intacto)
-		Quat pure = new Quat(point.x, point.y, point.z, 0f);
+		Quat pure = new Quat(point.x, point.y, point.z, 0f);		
 		Quat result = rotation * pure * Conjugate(rotation);
 
 		return new Vec3(result.x, result.y, result.z);
@@ -158,9 +165,9 @@ public struct Quat
 		return new Quaternion(q.x, q.y, q.z, q.w);
 	}
 
-	// Angulo entre dos quaternions
 	// Toma dos quaternions unitarios
 	/// <summary>
+	/// Devuelve el ángulo entre dos quaternions unitarios.
 	/// Dot (a, b) = |a| * |b| * cos(θ)
 	/// </summary>
 	/// <param name="a"></param>
@@ -176,10 +183,15 @@ public struct Quat
 		return angleRad * Mathf.Rad2Deg;
 	}
 
-	// Crea un quaternion que rota N grados en un eje
 	//
 	// Creo un quaternion con LA MITAD de la rotación para que, al multiplicarse con un vector, aplique la rotación
 	// intencionada
+	/// <summary>
+	/// Crea un quaternion que rota N grados en un eje
+	/// </summary>
+	/// <param name="angle"></param>
+	/// <param name="axis"></param>
+	/// <returns></returns>
 	public static Quat AngleAxis(float angle, Vec3 axis)
 	{
 		Vec3 normAxis = axis.normalized; //normalizar eje
@@ -187,15 +199,36 @@ public struct Quat
 		float sin = Mathf.Sin(halfRad);
 
 		return new Quat(normAxis.x * sin, normAxis.y * sin, normAxis.z * sin, Mathf.Cos(halfRad));
+		
+		//Un quaternion que representa una rotación de ángulo θ alrededor de un eje N se representa como:
+		
+		//q = cos(θ/2) + sin(θ/2) * (n_x * i + n_y * j + n_z * k)
+		//q = cos(θ/2) + (sin(θ/2) * n_x * i, sin(θ/2) * n_y * j, sin(θ/2) * n_z * k)
 	}
 
 	// Producto punto. Multiplicar todos los componentes entre sí
+	//	En dos quaterniones unitarios, devuelve el coseno del ángulo entre ellos
+	/// <summary>
+	/// Producto punto, multiplicación de todos los componentes entre sí en ambos quaterniones. En quaterniones
+	/// unitarios, devuelve el coseno del ángulo entre ambos quaterniones.
+	/// Definción alternativa: La magnitud de la proyección de un quaternion sobre otro.
+	/// </summary>
+	/// <param name="a"></param>
+	/// <param name="b"></param>
+	/// <returns></returns>
 	public static float Dot(Quat a, Quat b)
 	{
 		return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 	}
 
 	// 3 quaterniones. uno rota en z, otro en Y, otro en X
+	// Los ángulos euler representan 3 rotaciones sucesivas alrededor de los 3 ejes del objeto
+	// Genero 3 quaternions, uno por cada rotación, usando la formula de eje-ángulo de quaternion
+	/// <summary>
+	/// Devuelve el quaternion equivalente a la rotación Euler representada por el vector3
+	/// </summary>
+	/// <param name="euler"></param>
+	/// <returns></returns>
 	public static Quat Euler(Vec3 euler)
 	{
 		float x = euler.x * Mathf.Deg2Rad * 0.5f;
@@ -222,6 +255,12 @@ public struct Quat
 	}
 
 	// Toma vectores en radianes en vez de grados
+	
+	/// <summary>
+	/// Misma funcionalidad que "Euler", solo que asume radianes en el vector3
+	/// </summary>
+	/// <param name="euler"></param>
+	/// <returns></returns>
 	public static Quat EulerRotation(Vec3 euler)
 	{
 		float x = euler.x * 0.5f;
@@ -243,7 +282,9 @@ public struct Quat
 	}
 
 	/// <summary>
-	/// La rotación que lleva a un vector de dirección a otro.
+	/// Genera un quaternion que rota desde un vector a otro.
+	/// Con dot saco el ángulo, con cross el eje por el cual rotar
+	/// El resultado es un quaternion que rota θ sobre el eje de cross product
 	/// </summary>
 	/// <param name="fromDirection"></param>
 	/// <param name="toDirection"></param>
@@ -260,12 +301,12 @@ public struct Quat
 
 		if (dot <= -1f + Mathf.Epsilon) //El angulo entre ellos es 180°
 		{
-			Vec3 axis = Vec3.Cross(Vec3.Right, from); //Pruebo un eje arbitrario (porque podrían ser infinitos los ejes a elegir entre dos vectores opuestos)
+			Vec3 axis = Vec3.Cross(Vec3.Right, from); 
 
 			if (axis.magnitude < Mathf.Epsilon)
 				axis = Vec3.Cross(Vec3.Up, from);
 
-			return AngleAxis(180f, axis.normalized); //Rotar 180 grados en el eje obtenido
+			return AngleAxis(180f, axis.normalized); 
 		}
 
 		Vec3 rotationAxis = Vec3.Cross(from, to);
@@ -273,7 +314,12 @@ public struct Quat
 
 		return AngleAxis(angle, rotationAxis); //Rotar n grados en el eje obtenido
 	}
-
+	
+	/// <summary>
+	/// Devuelve un quaternion con sus componentes imaginarios negados
+	/// </summary>
+	/// <param name="rotation"></param>
+	/// <returns></returns>
 	public static Quat Conjugate(Quat rotation)
 	{
 		float newX = -rotation.x;
@@ -305,7 +351,15 @@ public struct Quat
 	{
 		return LerpUnclamped(a, b, Mathf.Clamp01(t));
 	}
-
+	
+	/// <summary>
+ 	/// Devuelve un quaternion unitario, producto de interpolar linealmente entre
+ 	/// 2 quaterniones dado un valor de 0 a 1 (t).
+	/// </summary>
+	/// <param name="a"></param>
+	/// <param name="b"></param>
+	/// <param name="t"></param>
+	/// <returns></returns>
 	public static Quat LerpUnclamped(Quat a, Quat b, float t)
 	{
 		Quat result;
@@ -333,31 +387,35 @@ public struct Quat
 	}
 
 	// Genera una rotación que deje al objeto mirando al forward argumento
+	/// <summary>
+	/// Obtengo tres ejes perpendiculares que reflejan mi rotación
+	///	Necesito construir una matriz de rotación, y luego usar el método de Shepperd para transformarlo a un 
+	///	Quaternion
+	/// </summary>
+	/// <param name="forward"></param>
+	/// <param name="upwards"></param>
+	/// <returns></returns>
 	public static Quat LookRotation(Vec3 forward, [DefaultValue("Vec3.Up")] Vec3 upwards)
 	{
 		forward = forward.normalized; //normalizo forward
 
 		Vec3 right = Vec3.Cross(upwards, forward).normalized; //Obtengo dirección de la derecha con cross de adelante y arriba
 		Vec3 up = Vec3.Cross(forward, right); //Lo recalculo para que sea exacto perpendicular
-
+		
+		
 		// Construir matriz de rotación
-		//
-		// ┌                                            ┐
-		// │ 1-2(y²+z²)    2(xy-wz)      2(xz+wy)    │
-		// │ 2(xy+wz)      1-2(x²+z²)    2(yz-wx)    │
-		// │ 2(xz-wy)      2(yz+wx)      1-2(x²+y²)  │
-		// └                                            ┘
 		//
 		//               Right      Up         Forward
 		float m00 = right.x, m01 = up.x, m02 = forward.x;
 		float m10 = right.y, m11 = up.y, m12 = forward.y;
 		float m20 = right.z, m21 = up.z, m22 = forward.z;
 
-		float trace = m00 + m11 + m22;
+		float trace = m00 + m11 + m22;	//Traza: SUMA DE LA DIAGONAL
 		Quat q = new Quat();
 
 		// Método de Shepperd
-		// Busco el numero más grande por el cual divido para obtener un resultado más estable y preciso
+		// Busco el componente del quaternion más grande, y ajusto la formula de conversión para evitar dividir
+		// por números chicos.
 		if (trace > 0f)
 		{
 			float s = Mathf.Sqrt(trace + 1f) * 2f;
@@ -436,6 +494,7 @@ public struct Quat
 	// al ángulo entre ambos quaterniones
 	public static Quat SlerpUnclamped(Quat a, Quat b, float t)
 	{
+		//el coseno del ángulo entre ambos quaterniones
 		float dot = Dot(a, b);
 
 		if (dot < 0f) // camino largo o camino corto para la rotación?
@@ -445,10 +504,12 @@ public struct Quat
 			dot = -dot; // necesitamos que el dot sea positivo para el acos
 		}
 
-		if (dot > 0.9995f) // si los quaterniones son muy similares
+		if (dot > 0.9995f) // si los quaterniones son muy similares, sin(omega) es un resultado muy cercano a 0,
+							//lo cual puede devolver un resultado gigante o NaN
 			return LerpUnclamped(a, b, t);
 
 		float omega = Mathf.Acos(dot); // angulo entre ambos quaternions
+										//con ACOS obtengo el ángulo en grados a partir del coseno del ángulo
 		float sinOmega = Mathf.Sin(omega);
 
 		float weightA = Mathf.Sin((1f - t) * omega) / sinOmega; // Lerp siguiendo el arco de la función seno
