@@ -2,6 +2,22 @@ using System.ComponentModel;
 using CustomMath;
 using UnityEngine;
 
+/*
+ Una rotación euler descompuesta en una matriz
+ M =
+[ cY·cZ + sY·sX·sZ   -cY·sZ + sY·sX·cZ    sY·cX ]
+[ cX·sZ               cX·cZ              -sX    ]
+[ -sY·cZ + cY·sX·sZ   sY·sZ + cY·sX·cZ    cY·cX ]
+ */
+
+
+/*
+ Un quaternion descompuesto en una matriz
+ R(q) =
+[ 1-2(y²+z²)    2(xy-wz)      2(xz+wy)   ]
+[ 2(xy+wz)     1-2(x²+z²)     2(yz-wx)   ]
+[ 2(xz-wy)     2(yz+wx)      1-2(x²+y²)  ]
+  */
 // Capaz lo normalizo en un getter
 public struct Quat
 {
@@ -46,6 +62,9 @@ public struct Quat
 		this.w = q.w;
 	}
 
+	/// <summary>
+	/// Normaliza los datos del quaternion instanciado
+	/// </summary>
 	public void Normalize()
 	{
 		Quat normalized = Normalize(this);
@@ -56,6 +75,13 @@ public struct Quat
 		w = normalized.w;
 	}
 
+	/// <summary>
+	/// Establece los valores de x, y, z, w en el quaternion instanciado
+	/// </summary>
+	/// <param name="newX"></param>
+	/// <param name="newY"></param>
+	/// <param name="newZ"></param>
+	/// <param name="newW"></param>
 	public void Set(float newX, float newY, float newZ, float newW)
 	{
 		x = newX;
@@ -457,6 +483,12 @@ public struct Quat
 		return LookRotation(forward, Vec3.Up);
 	}
 
+	/// <summary>
+	/// Divide todos los componentes del quaternion por su magnitud para normalizarlo.
+	/// El resultado es un quaternion unitario.
+	/// </summary>
+	/// <param name="q"></param>
+	/// <returns></returns>
 	public static Quat Normalize(Quat q)
 	{
 		// Hacer "Dot" es lo mismo que hacer x*x + y*y + z*z + w*w
@@ -473,6 +505,13 @@ public struct Quat
 
 	// Max degrees delta: Step
 	// maxDegreesDelta = 90 * Time.deltaTime
+	/// <summary>
+	/// Crea un quaternion resultante de la rotación de un quaternion a otro, con un máximo de grados por rotación.  
+	/// </summary>
+	/// <param name="from"></param>
+	/// <param name="to"></param>
+	/// <param name="maxDegreesDelta"></param>
+	/// <returns></returns>
 	public static Quat RotateTowards(Quat from, Quat to, float maxDegreesDelta)
 	{
 		float angle = Angle(from, to);
@@ -485,6 +524,13 @@ public struct Quat
 		return SlerpUnclamped(from, to, t);
 	}
 
+	/// <summary>
+	/// Interpolación hiperbólica entre dos quaterniones, dada por un valor de 0 a 1 llamado "t".
+	/// </summary>
+	/// <param name="a"></param>
+	/// <param name="b"></param>
+	/// <param name="t"></param>
+	/// <returns></returns>
 	public static Quat Slerp(Quat a, Quat b, float t)
 	{
 		return SlerpUnclamped(a, b, Mathf.Clamp01(t));
@@ -492,6 +538,13 @@ public struct Quat
 
 	// Spherical lerp, siguiendo un arco guiado por la función seno en base
 	// al ángulo entre ambos quaterniones
+	/// <summary>
+	/// Interpolación hiperbólica entre dos quaterniones, dado por un valor de T.
+	/// </summary>
+	/// <param name="a"></param>
+	/// <param name="b"></param>
+	/// <param name="t"></param>
+	/// <returns></returns>
 	public static Quat SlerpUnclamped(Quat a, Quat b, float t)
 	{
 		//el coseno del ángulo entre ambos quaterniones
@@ -524,6 +577,8 @@ public struct Quat
 	}
 
 	/// <summary>
+	/// Convierte un quaternion a una rotación euler en tres ejes.
+	/// 
 	/// Deshacer la multiplicación de los tres quaternions qz*qx*qy
 	/// para acceder a los ángulos originales
 	/// </summary>
@@ -531,20 +586,26 @@ public struct Quat
 	/// <returns></returns>
 	public static Vec3 ToEulerAngles(Quat q)
 	{
+		//1.
 		q = Normalize(q);
 
+		//2.
 		float sinPitch = 2f * (q.w * q.x + q.y * q.z);
 
 		Vec3 euler;
 
-		if (Mathf.Abs(sinPitch) > 0.9999f)
+		//3.	
+		//gimball lock. Cuando el seno del eje X se acerca a 90° los ejes Z, Y se alinean sobre el mismo eje.
+		if (Mathf.Abs(sinPitch) > 0.9999f)		
 		{
+			//Toda la rotación en X y Z establecido en cero.
 			euler.x = Mathf.Sign(sinPitch) * 90f;
 			euler.y = Mathf.Atan2(2f * (q.w * q.y + q.x * q.z), 1f - 2f * (q.y * q.y + q.z * q.z)) * Mathf.Rad2Deg;
 			euler.z = 0f;
 		}
 		else
 		{
+			//Distribución de la rotación por eje
 			euler.x = Mathf.Asin(sinPitch) * Mathf.Rad2Deg;
 			euler.y = Mathf.Atan2(2f * (q.w * q.y - q.x * q.z), 1f - 2f * (q.x * q.x + q.y * q.y)) * Mathf.Rad2Deg;
 			euler.z = Mathf.Atan2(2f * (q.w * q.z - q.x * q.y), 1f - 2f * (q.x * q.x + q.z * q.z)) * Mathf.Rad2Deg;

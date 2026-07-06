@@ -68,7 +68,7 @@ public class RubikController : MonoBehaviour
 		Vec3 up = new Vec3(cubeRoot.up);
 		Vec3 forward = new Vec3(cubeRoot.forward);
 
-		// 1) Centroide de todas las piezas => centro del cubo
+		// 1) Centro de todas las piezas => centro del cubo
 		Vec3 sum = Vec3.Zero;
 		foreach (MeshRenderer r in renderers)
 			sum += new Vec3(r.transform.position);
@@ -120,7 +120,10 @@ public class RubikController : MonoBehaviour
 	{
 		isTurning = true;
 
+		//Los ejes del cubo
 		Vec3 localAxis = FaceAxis(face);
+		
+		//Las capas logicas
 		int layer = FaceLayer(face);
 		Vec3 worldAxis = new Vec3(cubeRoot.TransformDirection(localAxis));
 
@@ -146,8 +149,11 @@ public class RubikController : MonoBehaviour
 		float elapsed = 0f;
 		while (elapsed < turnDuration)
 		{
+			//deltatime
 			elapsed += Time.deltaTime;
+			//smooth deltatime
 			float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / turnDuration));
+			//Slerp
 			Quat step = Quat.Slerp(Quat.identity, target, u);
 
 			for (int i = 0; i < layerCubies.Count; i++)
