@@ -5,7 +5,6 @@ using MathDebbuger;
 using CustomMath;
 public class Tester : MonoBehaviour
 {
-    Quaternion ian = Quaternion.identity; 
     void Start()
     {
         List<Vector3> vectors = new List<Vector3>();
@@ -19,10 +18,6 @@ public class Tester : MonoBehaviour
         Vector3Debugger.EnableEditorView("elAzul");
         Vector3Debugger.AddVector(Vector3.down * 7, Color.green, "elVerde");
         Vector3Debugger.EnableEditorView("elVerde");
-
-        ian = new Quaternion(2,2,332,5);
-        transform.rotation = ian;
-        Debug.Log(ian);
 
     }
 

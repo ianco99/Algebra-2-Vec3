@@ -7,7 +7,8 @@ namespace CustomMath
         #region Variables
         
         public Vec3 normal;
-        public float distance;
+        
+        public float distance;  //
 
         #endregion
 

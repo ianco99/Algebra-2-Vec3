@@ -17,6 +17,9 @@ namespace CustomMath
 
 		public Vec3 normalized => Vec3.Normalize(this);
 
+		/// <summary>
+		/// El largo del vector.
+		/// </summary>
 		public float magnitude => Magnitude(this);
 
 		#endregion
@@ -176,6 +179,27 @@ namespace CustomMath
 			return new Vector2(v2.x, v2.y);
 		}
 
+		public static Vec3 operator *(Quaternion rotation, Vec3 point)
+		{
+			float num1 = rotation.x * 2f;
+			float num2 = rotation.y * 2f;
+			float num3 = rotation.z * 2f;
+			float num4 = rotation.x * num1;
+			float num5 = rotation.y * num2;
+			float num6 = rotation.z * num3;
+			float num7 = rotation.x * num2;
+			float num8 = rotation.x * num3;
+			float num9 = rotation.y * num3;
+			float num10 = rotation.w * num1;
+			float num11 = rotation.w * num2;
+			float num12 = rotation.w * num3;
+			Vec3 vector3;
+			vector3.x = (float) ((1.0 - ((double) num5 + (double) num6)) * (double) point.x + ((double) num7 - (double) num12) * (double) point.y + ((double) num8 + (double) num11) * (double) point.z);
+			vector3.y = (float) (((double) num7 + (double) num12) * (double) point.x + (1.0 - ((double) num4 + (double) num6)) * (double) point.y + ((double) num9 - (double) num10) * (double) point.z);
+			vector3.z = (float) (((double) num8 - (double) num11) * (double) point.x + ((double) num9 + (double) num10) * (double) point.y + (1.0 - ((double) num4 + (double) num5)) * (double) point.z);
+			return vector3;
+		}
+
 		#endregion
 
 		#region Functions
@@ -185,6 +209,12 @@ namespace CustomMath
 			return "X = " + x.ToString() + "   Y = " + y.ToString() + "   Z = " + z.ToString();
 		}
 
+		/// <summary>
+		/// Devuelve el ángulo entre ambos
+		/// </summary>
+		/// <param name="from"></param>
+		/// <param name="to"></param>
+		/// <returns></returns>
 		public static float Angle(Vec3 from, Vec3 to)
 		{
 			float dot = Dot(from, to);
@@ -224,6 +254,12 @@ namespace CustomMath
 			return MathF.Sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
 		}
 
+		/// <summary>
+		/// Devuelve un vector3 perpendicular a ambos vectores pasados como parámetros.
+		/// </summary>
+		/// <param name="a"></param>
+		/// <param name="b"></param>
+		/// <returns></returns>
 		public static Vec3 Cross(Vec3 a, Vec3 b)
 		{
 			float x = (a.y * b.z) - (a.z * b.y);
