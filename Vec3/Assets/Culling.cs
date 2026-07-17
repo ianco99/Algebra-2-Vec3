@@ -6,22 +6,19 @@ using Plane = CustomMath.MyPlane;
 
 public class Culling : MonoBehaviour
 {
-	//Inicializa las constantes
-
 	#region Variables
 
 	private const int maxPlanes = 6;
-	private const int maxObjecTest = 5;
 	private const int AABBPoints = 8;
-	private int maxGameObjects;
 
 	[SerializeField] bool drawVertices = false;
+	[SerializeField] bool logCulling = false;
+
+	private string lastSnapshot = "";
 
 	#endregion
 
 	Camera camera;
-	[SerializeField] GameObject[] objectsTest = new GameObject[maxObjecTest];
-	[SerializeField] FrustrumObjects[] objs = new FrustrumObjects[maxObjecTest];
 	[SerializeField] LineSystem lineSystem;
 
 	#region PlanePoints
@@ -60,40 +57,26 @@ public class Culling : MonoBehaviour
 		{
 			plane[i] = new Plane();
 		}
-
-		maxGameObjects = GameObject.FindGameObjectsWithTag("Objects").Length;
-		objectsTest = GameObject.FindGameObjectsWithTag("Objects");
-
-		for (int i = 0; i < maxGameObjects; i++)
-		{
-			CreateFrustrumObjects(ref objs[i], objectsTest[i]);
-		}
 	}
 
 	private void FixedUpdate()
 	{
-		this.transform.position = Vector3.Zero;
+		if (lineSystem == null || camera == null)
+		{
+			return;
+		}
+
+		UpdateFrustrumPlanes();
 
 		foreach (Room room in lineSystem.allRooms)
 		{
 			foreach (FrustrumObjects roomObject in room.roomObjects)
 			{
-				roomObject.gameObject.SetActive(false);
+				ObjectCollision(room, roomObject);
 			}
 		}
 
-		UpdateFrustrumPlanes();
-	}
-
-	void CreateFrustrumObjects(ref FrustrumObjects fobj, GameObject realObj)
-	{
-		fobj.gameObject = realObj;
-		fobj.meshFilter = realObj.GetComponent<MeshFilter>();
-		fobj.meshRenderer = realObj.GetComponent<MeshRenderer>();
-		fobj.aabb = new Vector3[AABBPoints];
-		fobj.extents = new Vector3(fobj.meshRenderer.bounds.extents);
-		fobj.scale = new Vector3(fobj.meshRenderer.bounds.size);
-		fobj.isAABBInside = false;
+		LogSnapshot();
 	}
 
 	void UpdateFrustrumPlanes()
@@ -114,22 +97,6 @@ public class Culling : MonoBehaviour
 		for (int i = 2; i < maxPlanes; i++)
 		{
 			plane[i].Flip();
-		}
-
-		for (int i = 0; i < maxGameObjects; i++)
-		{
-			SetAABB(ref objs[i]);
-		}
-
-		foreach (Room room in lineSystem.allRooms)
-		{
-			if (room.isRoomVisible)
-			{
-				foreach (var VARIABLE in room.roomObjects)
-				{
-					ObjectCollision(VARIABLE);
-				}
-			}
 		}
 	}
 
@@ -176,20 +143,15 @@ public class Culling : MonoBehaviour
 	}
 
 
-	public void SetAABB(ref FrustrumObjects actualObj)
+	public void SetAABB(FrustrumObjects actualObj)
 	{
-		if (actualObj.scale != actualObj.gameObject.transform.localScale)
-		{
-			Quaternion rotation = actualObj.gameObject.transform.rotation;
-			actualObj.gameObject.transform.rotation = Quaternion.identity;
-			actualObj.extents = new Vector3(actualObj.meshRenderer.bounds.extents);
-			actualObj.scale = new Vector3(actualObj.gameObject.transform.localScale);
-			actualObj.gameObject.transform.rotation = rotation;
-		}
+		Bounds bounds = actualObj.meshRenderer.bounds;
 
-		Vector3 size = actualObj.extents;
-		Vector3 center = new Vector3(actualObj.meshRenderer.bounds.center);
+		Vector3 center = new Vector3(bounds.center);
+		Vector3 size = new Vector3(bounds.extents);
 
+		actualObj.extents = size;
+		actualObj.scale = new Vector3(bounds.size);
 
 		actualObj.aabb[0] = new Vector3(center.x - size.x, center.y + size.y, center.z - size.z);
 		actualObj.aabb[1] = new Vector3(center.x + size.x, center.y + size.y, center.z - size.z);
@@ -199,113 +161,83 @@ public class Culling : MonoBehaviour
 		actualObj.aabb[5] = new Vector3(center.x + size.x, center.y + size.y, center.z + size.z);
 		actualObj.aabb[6] = new Vector3(center.x - size.x, center.y - size.y, center.z + size.z);
 		actualObj.aabb[7] = new Vector3(center.x + size.x, center.y - size.y, center.z + size.z);
-
-
-		actualObj.aabb[0] = new Vector3(transform.TransformPoint(actualObj.aabb[0]));
-		actualObj.aabb[1] = new Vector3(transform.TransformPoint(actualObj.aabb[1]));
-		actualObj.aabb[2] = new Vector3(transform.TransformPoint(actualObj.aabb[2]));
-		actualObj.aabb[3] = new Vector3(transform.TransformPoint(actualObj.aabb[3]));
-		actualObj.aabb[4] = new Vector3(transform.TransformPoint(actualObj.aabb[4]));
-		actualObj.aabb[5] = new Vector3(transform.TransformPoint(actualObj.aabb[5]));
-		actualObj.aabb[6] = new Vector3(transform.TransformPoint(actualObj.aabb[6]));
-		actualObj.aabb[7] = new Vector3(transform.TransformPoint(actualObj.aabb[7]));
-
-
-		actualObj.aabb[0] = RotatePointAroundPivot(actualObj.aabb[0],
-			new Vector3(actualObj.gameObject.transform.position),
-			new Vector3(actualObj.gameObject.transform.rotation.eulerAngles));
-		actualObj.aabb[1] = RotatePointAroundPivot(actualObj.aabb[1],
-			new Vector3(actualObj.gameObject.transform.position),
-			new Vector3(actualObj.gameObject.transform.rotation.eulerAngles));
-		actualObj.aabb[2] = RotatePointAroundPivot(actualObj.aabb[2],
-			new Vector3(actualObj.gameObject.transform.position),
-			new Vector3(actualObj.gameObject.transform.rotation.eulerAngles));
-		actualObj.aabb[3] = RotatePointAroundPivot(actualObj.aabb[3],
-			new Vector3(actualObj.gameObject.transform.position),
-			new Vector3(actualObj.gameObject.transform.rotation.eulerAngles));
-		actualObj.aabb[4] = RotatePointAroundPivot(actualObj.aabb[4],
-			new Vector3(actualObj.gameObject.transform.position),
-			new Vector3(actualObj.gameObject.transform.rotation.eulerAngles));
-		actualObj.aabb[5] = RotatePointAroundPivot(actualObj.aabb[5],
-			new Vector3(actualObj.gameObject.transform.position),
-			new Vector3(actualObj.gameObject.transform.rotation.eulerAngles));
-		actualObj.aabb[6] = RotatePointAroundPivot(actualObj.aabb[6],
-			new Vector3(actualObj.gameObject.transform.position),
-			new Vector3(actualObj.gameObject.transform.rotation.eulerAngles));
-		actualObj.aabb[7] = RotatePointAroundPivot(actualObj.aabb[7],
-			new Vector3(actualObj.gameObject.transform.position),
-			new Vector3(actualObj.gameObject.transform.rotation.eulerAngles));
 	}
 
 
-	public Vector3 RotatePointAroundPivot(Vector3 point, Vector3 pivot, Vector3 angles)
+	bool IsAABBInFrustrum(FrustrumObjects actualObj)
 	{
-		Vector3 dir = point - pivot;
-		dir = Quaternion.Euler(angles) * dir;
-		point = dir + pivot;
-		return point;
-	}
-
-	public void ObjectCollision(FrustrumObjects actualObj)
-	{
-		actualObj.isAABBInside = false;
-
-		for (int i = 0; i < AABBPoints; i++)
+		for (int j = 0; j < maxPlanes; j++)
 		{
-			int counter = maxPlanes;
+			bool allCornersOutside = true;
 
-			for (int j = 0; j < maxPlanes; j++)
+			for (int i = 0; i < AABBPoints; i++)
 			{
 				if (plane[j].GetSide(actualObj.aabb[i]))
 				{
-					counter--;
-				}
-			}
-
-			if (counter == 0)
-			{
-				actualObj.isAABBInside = true;
-
-				break;
-			}
-		}
-
-		if (actualObj.isAABBInside)
-		{
-			for (int i = 0; i < actualObj.meshFilter.mesh.vertices.Length; i++)
-			{
-				int counter = maxPlanes;
-
-				for (int j = 0; j < maxPlanes; j++)
-				{
-					if (plane[j].GetSide(
-						    new Vector3(actualObj.gameObject.transform.TransformPoint(actualObj.meshFilter.mesh.vertices[i]))))
-					{
-						counter--;
-						//Esto de aca mejor
-						actualObj.gameObject.SetActive(true);
-						//
-						break;
-					}
-				}
-
-				if (counter == 0)
-				{
-					actualObj.gameObject.SetActive(true);
-
+					allCornersOutside = false;
 					break;
 				}
 			}
-		}
 
-		else
-		{
-			if (actualObj.gameObject.activeSelf)
+			if (allCornersOutside)
 			{
-				actualObj.gameObject.SetActive(false);
+				return false;
 			}
 		}
+
+		return true;
 	}
+
+
+	public void ObjectCollision(Room room, FrustrumObjects actualObj)
+	{
+		SetAABB(actualObj);
+
+		actualObj.isAABBInside = IsAABBInFrustrum(actualObj);
+
+		bool shouldBeActive = room.isRoomVisible && actualObj.isAABBInside;
+
+		if (actualObj.gameObject.activeSelf != shouldBeActive)
+		{
+			actualObj.gameObject.SetActive(shouldBeActive);
+		}
+	}
+
+
+	void LogSnapshot()
+	{
+		if (!logCulling)
+		{
+			return;
+		}
+
+		System.Text.StringBuilder sb = new System.Text.StringBuilder();
+
+		foreach (Room room in lineSystem.allRooms)
+		{
+			sb.Append(room.name).Append(room.isRoomVisible ? "[VISIBLE]" : "[hidden]");
+
+			foreach (FrustrumObjects roomObject in room.roomObjects)
+			{
+				sb.Append(' ').Append(roomObject.gameObject.name)
+					.Append(roomObject.gameObject.activeSelf ? "=ON" : "=OFF")
+					.Append("(inFrustrum=").Append(roomObject.isAABBInside).Append(')');
+			}
+
+			sb.Append(" | ");
+		}
+
+		string snapshot = sb.ToString();
+
+		if (snapshot == lastSnapshot)
+		{
+			return;
+		}
+
+		lastSnapshot = snapshot;
+		Debug.Log("[Culling] " + snapshot);
+	}
+
 
 	public void OnDrawGizmos()
 	{
@@ -322,13 +254,21 @@ public class Culling : MonoBehaviour
 		DrawPlane(nearTopLeft, farTopLeft, farTopRight, nearTopRight);
 		DrawPlane(nearDownLeft, farDownLeft, farDownRight, nearDownRight);
 
-
-		for (int i = 0; i < maxGameObjects; i++)
+		if (lineSystem == null)
 		{
-			DrawAABB(ref objs[i]);
-			if (drawVertices)
+			return;
+		}
+
+		foreach (Room room in lineSystem.allRooms)
+		{
+			foreach (FrustrumObjects roomObject in room.roomObjects)
 			{
-				DrawVert(objs[i]);
+				DrawAABB(roomObject);
+
+				if (drawVertices)
+				{
+					DrawVert(roomObject);
+				}
 			}
 		}
 	}
@@ -345,9 +285,9 @@ public class Culling : MonoBehaviour
 	}
 
 
-	public void DrawAABB(ref FrustrumObjects actualObj)
+	public void DrawAABB(FrustrumObjects actualObj)
 	{
-		Gizmos.color = Color.magenta;
+		Gizmos.color = actualObj.isAABBInside ? Color.magenta : Color.grey;
 
 		for (int i = 0; i < AABBPoints; i++)
 		{
@@ -374,11 +314,18 @@ public class Culling : MonoBehaviour
 	{
 		Gizmos.color = Color.red;
 
-		MeshFilter mesh = currentObject.gameObject.GetComponent<MeshFilter>();
+		Mesh mesh = currentObject.meshFilter.sharedMesh;
 
-		for (int i = 0; i < mesh.mesh.vertices.Length; i++)
+		if (mesh == null)
 		{
-			Gizmos.DrawSphere(currentObject.gameObject.transform.TransformPoint(mesh.mesh.vertices[i]), 0.05f);
+			return;
+		}
+
+		UnityEngine.Vector3[] vertices = mesh.vertices;
+
+		for (int i = 0; i < vertices.Length; i++)
+		{
+			Gizmos.DrawSphere(currentObject.gameObject.transform.TransformPoint(vertices[i]), 0.05f);
 		}
 
 		Gizmos.color = Color.blue;

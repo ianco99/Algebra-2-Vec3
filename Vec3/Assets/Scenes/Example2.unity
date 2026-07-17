@@ -497,9 +497,11 @@ MonoBehaviour:
   - {fileID: 778952856}
   currentRoom: {fileID: 0}
   currentRoomIndex: -1
-  lineMargin: 1.56
+  rows: 5
+  columns: 9
   renderDis: 6.03
-  iterFreq: 1
+  iterFreq: 2
+  logRooms: 1
 --- !u!114 &525270132
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -948,6 +950,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   drawVertices: 0
+  logCulling: 1
   objectsTest: []
   lineSystem: {fileID: 525270131}
 --- !u!1001 &1589976248

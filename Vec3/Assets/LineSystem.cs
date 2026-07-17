@@ -14,10 +14,15 @@ public class LineSystem : MonoBehaviour
 	public int currentRoomIndex = -1;
 
 
-	[SerializeField] private float lineMargin;
+	[SerializeField] private int rows = 5;
+	[SerializeField] private int columns = 9;
 	[SerializeField] private float renderDis;
 	[SerializeField] private float iterFreq;
-	private Vector3[] points = { };
+	[SerializeField] private bool logRooms = false;
+
+	private Camera cam;
+	private int sampleCount;
+	private string lastSnapshot = "";
 
 	struct Line
 	{
@@ -25,134 +30,238 @@ public class LineSystem : MonoBehaviour
 		public Vector3 dir;
 	}
 
-	private Line[] lines = new Line[10];
+	private Line[] lines;
 
 	void Start()
 	{
 		player = transform.parent;
-		points = new Vector3[(int)(renderDis / iterFreq)];
+		EnsureReady();
+	}
+
+	bool EnsureReady()
+	{
+		if (cam == null)
+		{
+			cam = GetComponent<Camera>();
+		}
+
+		if (cam == null || renderDis <= 0.0f || iterFreq <= 0.0f)
+		{
+			return false;
+		}
+
+		rows = Mathf.Max(1, rows);
+		columns = Mathf.Max(1, columns);
+
+		if (lines == null || lines.Length != rows * columns)
+		{
+			lines = new Line[rows * columns];
+		}
+
+		sampleCount = Mathf.Max(1, Mathf.CeilToInt(renderDis / iterFreq));
+
+		return true;
 	}
 
 	void InitLines()
 	{
-		for (int i = 0; i < lines.Length; i++)
+		float tanHalfV = Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+		float tanHalfH = tanHalfV * cam.aspect;
+
+		Vector3 origin = new Vector3(transform.position);
+		Vector3 forward = new Vector3(transform.forward);
+		Vector3 right = new Vector3(transform.right);
+		Vector3 up = new Vector3(transform.up);
+
+		for (int r = 0; r < rows; r++)
 		{
-			lines[i].ini = new Vector3(transform.position);
-			lines[i].dir = new Vector3(transform.forward * renderDis + transform.right * lineMargin * (-lines.Length / 2) +
-			                           i * transform.right * lineMargin).normalized;
-		}
-	}
+			float v = rows > 1 ? 2.0f * r / (rows - 1) - 1.0f : 0.0f;
 
-	public void DrawLines()
-	{
-		for (int i = 0; i < lines.Length; i++)
-		{
-			Vector3[] points = new Vector3[(int)(renderDis / iterFreq)];
-
-			Gizmos.color = Color.red;
-
-			for (int j = 0; j < points.Length; j++)
+			for (int c = 0; c < columns; c++)
 			{
-				points[j] = lines[i].ini + lines[i].dir * iterFreq * j;
-				Gizmos.DrawSphere(points[j], 0.1f);
+				float u = columns > 1 ? 2.0f * c / (columns - 1) - 1.0f : 0.0f;
+
+				lines[r * columns + c].ini = origin;
+				lines[r * columns + c].dir = (forward + right * (u * tanHalfH) + up * (v * tanHalfV)).normalized;
 			}
 		}
 	}
 
-	bool IsPointInPlane(Vector3 point, Plane plane)
+	Vector3 SamplePoint(int line, int step)
 	{
-		if (plane.GetSide(point))
-		{
-			return true;
-		}
+		return lines[line].ini + lines[line].dir * Mathf.Min(iterFreq * (step + 1), renderDis);
+	}
 
-		return false;
+	public void DrawLines()
+	{
+		Gizmos.color = Color.red;
+
+		for (int i = 0; i < lines.Length; i++)
+		{
+			for (int j = 0; j < sampleCount; j++)
+			{
+				Gizmos.DrawSphere(SamplePoint(i, j), 0.1f);
+			}
+		}
 	}
 
 	void Update()
 	{
+		if (!EnsureReady())
+		{
+			return;
+		}
+
+		InitLines();
 		checkPlayerPos();
+
+		if (currentRoom == null)
+		{
+			LogSnapshot();
+			return;
+		}
+
 		currentRoom.isRoomVisible = true;
 		currentRoom.isChecked = true;
+
 		foreach (Data adRoom in currentRoom.adyacentRooms)
 		{
 			checkAdyacentRooms(adRoom);
 		}
+
+		LogSnapshot();
+	}
+
+	void LogSnapshot()
+	{
+		if (!logRooms)
+		{
+			return;
+		}
+
+		System.Text.StringBuilder sb = new System.Text.StringBuilder();
+
+		sb.Append("player is in ").Append(currentRoom != null ? currentRoom.name : "NO ROOM");
+		sb.Append(" | rooms lit by lines:");
+
+		for (int i = 0; i < allRooms.Length; i++)
+		{
+			if (allRooms[i].isRoomVisible)
+			{
+				sb.Append(' ').Append(allRooms[i].name);
+			}
+		}
+
+		string snapshot = sb.ToString();
+
+		if (snapshot == lastSnapshot)
+		{
+			return;
+		}
+
+		lastSnapshot = snapshot;
+		Debug.Log("[LineSystem] " + snapshot);
 	}
 
 	void checkPlayerPos()
 	{
+		currentRoom = null;
+		currentRoomIndex = -1;
+
 		for (int i = 0; i < allRooms.Length; i++)
 		{
-			if (allRooms[i].isPointInside(new Vector3(player.position)))
+			allRooms[i].isRoomVisible = false;
+			allRooms[i].isChecked = false;
+		}
+
+		Vector3 playerPos = new Vector3(player.position);
+
+		for (int i = 0; i < allRooms.Length; i++)
+		{
+			if (allRooms[i].isPointInside(playerPos))
 			{
 				currentRoomIndex = i;
 				currentRoom = allRooms[i];
 				currentRoom.isRoomVisible = true;
 				currentRoom.isChecked = true;
-			}
-
-			else
-			{
-				allRooms[i].isRoomVisible = false;
-				allRooms[i].isChecked = false;
+				break;
 			}
 		}
 	}
 
 	void checkAdyacentRooms(Data adjRoom)
 	{
-		Vector3[] points = new Vector3[(int)(renderDis / iterFreq)];
-
-		for (int j = 0; j < lines.Length; j++)
+		if (adjRoom == null || adjRoom.room == null || adjRoom.door == null || adjRoom.room.isChecked)
 		{
-			for (int i = 0; i < points.Length; i++)
-			{
-				points[i] = lines[j].ini + lines[j].dir * iterFreq * i;
-				
-				Plane plane = new Plane(new Vector3(adjRoom.door.transform.forward), new Vector3(adjRoom.door.transform.position));
-				Plane plane1 = new Plane(new Vector3(adjRoom.door.transform.right),
-					new Vector3(adjRoom.door.transform.position - adjRoom.door.transform.right));
-				Plane plane2 = new Plane(new Vector3(-adjRoom.door.transform.right),
-					new Vector3(adjRoom.door.transform.position + adjRoom.door.transform.right));
+			return;
+		}
 
-				Debug.DrawRay(adjRoom.door.transform.position + adjRoom.door.transform.right, -adjRoom.door.transform.right, Color.green);
-				Debug.DrawRay(adjRoom.door.transform.position - adjRoom.door.transform.right, adjRoom.door.transform.right, Color.brown);
-				
-				if (!plane.GetSide(points[i]))
+		Transform door = adjRoom.door.transform;
+
+		Vector3 doorPos = new Vector3(door.position);
+		Vector3 doorRight = new Vector3(door.right);
+		Vector3 doorUp = new Vector3(door.up);
+
+		float halfWidth = door.lossyScale.x * 0.5f;
+		float halfHeight = door.lossyScale.y * 0.5f;
+
+		Plane facing = new Plane(new Vector3(door.forward), doorPos);
+		Plane left = new Plane(doorRight, doorPos - doorRight * halfWidth);
+		Plane right = new Plane(-doorRight, doorPos + doorRight * halfWidth);
+		Plane bottom = new Plane(doorUp, doorPos - doorUp * halfHeight);
+		Plane top = new Plane(-doorUp, doorPos + doorUp * halfHeight);
+
+		for (int i = 0; i < lines.Length; i++)
+		{
+			for (int j = 0; j < sampleCount; j++)
+			{
+				Vector3 point = SamplePoint(i, j);
+
+				if (facing.GetSide(point))
 				{
-					if (plane1.GetSide(points[i]) && plane2.GetSide(points[i]))
-					{
-						if (!adjRoom.room.isChecked && adjRoom.room.isPointInside(points[i]))
-						{
-							adjRoom.room.isRoomVisible = true;
-							adjRoom.room.isChecked = true;
-							foreach (Data adRoom in adjRoom.room.adyacentRooms)
-							{
-								checkAdyacentRooms(adRoom);
-							}
-						}
-					}
-					
+					continue;
 				}
+
+				if (!left.GetSide(point) || !right.GetSide(point))
+				{
+					continue;
+				}
+
+				if (!bottom.GetSide(point) || !top.GetSide(point))
+				{
+					continue;
+				}
+
+				if (!adjRoom.room.isPointInside(point))
+				{
+					continue;
+				}
+
+				adjRoom.room.isRoomVisible = true;
+				adjRoom.room.isChecked = true;
+
+				foreach (Data adRoom in adjRoom.room.adyacentRooms)
+				{
+					checkAdyacentRooms(adRoom);
+				}
+
+				return;
 			}
 		}
 	}
 
 	void OnDrawGizmos()
 	{
-		Gizmos.color = Color.red;
-		InitLines();
-		DrawLines();
-		for (int i = 0; i < points.Length; i++)
+		if (!EnsureReady())
 		{
-			Gizmos.DrawSphere(points[i], 0.1f);
+			return;
 		}
-		// if(currentRom)
-		// foreach (Room adRoom in currentRoom.adyacentRooms)
-		// {
-		// //    checkAdyacentRooms(adRoom);
-		//
-		// }
+
+		if (!Application.isPlaying)
+		{
+			InitLines();
+		}
+
+		DrawLines();
 	}
 }

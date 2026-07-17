@@ -31,23 +31,46 @@ public class Room : MonoBehaviour
 
 	public bool isRoomVisible = false;
 	public bool isChecked = false;
-	private float updateTimer = 2.0f;
+
+	private MeshRenderer[] cachedRenderers;
 
 	void Start()
 	{
 		rightRoomRaycast.origin = rightPos.position;
 		rightRoomRaycast.direction = transform.right;
-		downRoomRaycast.origin += downPos.position;
+		downRoomRaycast.origin = downPos.position;
 		downRoomRaycast.direction = transform.forward * -1;
 
-		for (int i = 0; i < 4; i++)
-		{
-			roomPlanes[i] = new Plane(new Vector3(planesPos[i].forward), new Vector3(planesPos[i].position));
-		}
+		BuildPlanes();
+
+		cachedRenderers = GetComponentsInChildren<MeshRenderer>(true);
 
 		foreach (GameObject VARIABLE in objectsToCopy)
 		{
 			roomObjects.Add(CreateFrustrumObjects(VARIABLE));
+		}
+	}
+
+	void BuildPlanes()
+	{
+		if (roomPlanes == null || roomPlanes.Length != 4)
+		{
+			roomPlanes = new Plane[4];
+		}
+
+		if (planesPos == null || planesPos.Length < roomPlanes.Length)
+		{
+			return;
+		}
+
+		for (int i = 0; i < roomPlanes.Length; i++)
+		{
+			if (planesPos[i] == null)
+			{
+				continue;
+			}
+
+			roomPlanes[i] = new Plane(new Vector3(planesPos[i].forward), new Vector3(planesPos[i].position));
 		}
 	}
 
@@ -70,7 +93,10 @@ public class Room : MonoBehaviour
 		rightRoomRaycast.direction = transform.right;
 		downRoomRaycast.origin = downPos.position;
 		downRoomRaycast.direction = transform.forward * -1;
+	}
 
+	void LateUpdate()
+	{
 		if (isRoomVisible)
 		{
 			Show();
@@ -79,59 +105,67 @@ public class Room : MonoBehaviour
 		{
 			Hide();
 		}
-
-		if (isChecked)
-		{
-			updateTimer -= Time.deltaTime;
-			if (updateTimer < 0.0f)
-			{
-				updateTimer = 2.0f;
-				isChecked = false;
-				isRoomVisible = false;
-			}
-		}
 	}
 
 	public void Hide()
 	{
-		MeshRenderer[] mesh = GetComponentsInChildren<MeshRenderer>();
-
-		for (int i = 0; i < mesh.Length; i++)
-		{
-			mesh[i].enabled = false;
-		}
+		SetRenderersEnabled(false);
 	}
 
 	public void Show()
 	{
-		MeshRenderer[] mesh = GetComponentsInChildren<MeshRenderer>();
+		SetRenderersEnabled(true);
+	}
 
-		for (int i = 0; i < mesh.Length; i++)
+	void SetRenderersEnabled(bool value)
+	{
+		if (cachedRenderers == null)
 		{
-			mesh[i].enabled = true;
+			cachedRenderers = GetComponentsInChildren<MeshRenderer>(true);
+		}
+
+		for (int i = 0; i < cachedRenderers.Length; i++)
+		{
+			cachedRenderers[i].enabled = value;
 		}
 	}
 
 	void OnDrawGizmos()
 	{
+		if (!Application.isPlaying)
+		{
+			BuildPlanes();
+		}
+
 		Gizmos.color = Color.red;
 		Gizmos.DrawRay(rightRoomRaycast);
 		Gizmos.color = Color.blue;
 		Gizmos.DrawRay(downRoomRaycast);
+
+		if (planesPos == null)
+		{
+			return;
+		}
+
 		for (int i = 0; i < planesPos.Length; i++)
 		{
+			if (planesPos[i] == null)
+			{
+				continue;
+			}
+
 			Gizmos.DrawSphere(planesPos[i].position, 0.5f);
 		}
 
-		// Gizmos.DrawSphere(transform.TransformPoint(planesPos[0].position), 0.5f);
-		// Gizmos.DrawSphere(transform.TransformPoint(planesPos[1].position), 0.5f);
-		// Gizmos.DrawSphere(transform.TransformPoint(planesPos[2].position), 0.5f);
-		//  Gizmos.DrawSphere(new Vector3(1.764f, 1.2f * 2, 1.764f), 0.5f);
-		//  Gizmos.DrawSphere(new Vector3(1.764f, 0, -1.764f), 0.5f);
-
 		Gizmos.color = Color.green;
-		for (int i = 0; i < 4; i++)
+
+		for (int i = 0; i < roomPlanes.Length; i++)
 		{
+			if (i >= planesPos.Length || planesPos[i] == null)
+			{
+				continue;
+			}
+
 			DrawPlane(new Vector3(planesPos[i].position), roomPlanes[i].normal);
 		}
 	}

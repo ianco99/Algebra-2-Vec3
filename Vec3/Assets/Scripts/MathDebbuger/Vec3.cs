@@ -194,9 +194,15 @@ namespace CustomMath
 			float num11 = rotation.w * num2;
 			float num12 = rotation.w * num3;
 			Vec3 vector3;
-			vector3.x = (float) ((1.0 - ((double) num5 + (double) num6)) * (double) point.x + ((double) num7 - (double) num12) * (double) point.y + ((double) num8 + (double) num11) * (double) point.z);
-			vector3.y = (float) (((double) num7 + (double) num12) * (double) point.x + (1.0 - ((double) num4 + (double) num6)) * (double) point.y + ((double) num9 - (double) num10) * (double) point.z);
-			vector3.z = (float) (((double) num8 - (double) num11) * (double) point.x + ((double) num9 + (double) num10) * (double) point.y + (1.0 - ((double) num4 + (double) num5)) * (double) point.z);
+			vector3.x = (float)((1.0 - ((double)num5 + (double)num6)) * (double)point.x +
+			                    ((double)num7 - (double)num12) * (double)point.y +
+			                    ((double)num8 + (double)num11) * (double)point.z);
+			vector3.y = (float)(((double)num7 + (double)num12) * (double)point.x +
+			                    (1.0 - ((double)num4 + (double)num6)) * (double)point.y +
+			                    ((double)num9 - (double)num10) * (double)point.z);
+			vector3.z = (float)(((double)num8 - (double)num11) * (double)point.x +
+			                    ((double)num9 + (double)num10) * (double)point.y +
+			                    (1.0 - ((double)num4 + (double)num5)) * (double)point.z);
 			return vector3;
 		}
 
@@ -210,7 +216,7 @@ namespace CustomMath
 		}
 
 		/// <summary>
-		/// Devuelve el ángulo entre ambos
+		/// Devuelve el ángulo entre ambos vectores.
 		/// </summary>
 		/// <param name="from"></param>
 		/// <param name="to"></param>
@@ -222,11 +228,17 @@ namespace CustomMath
 
 			if (magProduct < epsilon) return 0f;
 
-			float cos = Math.Clamp(dot / magProduct, -1.0f, 1.0f);
+			float cos = Math.Clamp(dot / magProduct, -1.0f, 1.0f);//por errores de punto flotante
 
 			return (float)Math.Acos(cos) * (180.0f / (float)Math.PI);
 		}
 
+		/// <summary>
+		/// Devuelve un vector de igual dirección pero longitud limitada por un parámetro.
+		/// </summary>
+		/// <param name="vector"></param>
+		/// <param name="maxLength"></param>
+		/// <returns></returns>
 		public static Vec3 ClampMagnitude(Vec3 vector, float maxLength)
 		{
 			float sqrMag = vector.sqrMagnitude;
@@ -249,6 +261,11 @@ namespace CustomMath
 			return vector;
 		}
 
+		/// <summary>
+		/// Devuelve la magnitud de un vector dado como parámetro.
+		/// </summary>
+		/// <param name="vector"></param>
+		/// <returns></returns>
 		public static float Magnitude(Vec3 vector)
 		{
 			return MathF.Sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
@@ -256,6 +273,7 @@ namespace CustomMath
 
 		/// <summary>
 		/// Devuelve un vector3 perpendicular a ambos vectores pasados como parámetros.
+		/// Aislamos cada resultado del eje correspondiente para garantizar los 90 grados.
 		/// </summary>
 		/// <param name="a"></param>
 		/// <param name="b"></param>
@@ -268,6 +286,12 @@ namespace CustomMath
 			return new Vec3(x, y, z);
 		}
 
+		/// <summary>
+		/// Devuelve la distancia absoluta entre dos puntos en el espacio.
+		/// </summary>
+		/// <param name="a"></param>
+		/// <param name="b"></param>
+		/// <returns></returns>
 		public static float Distance(Vec3 a, Vec3 b)
 		{
 			float diffX = a.x - b.x;
@@ -277,11 +301,29 @@ namespace CustomMath
 			return (float)Math.Sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ);
 		}
 
+		/// <summary>
+		/// Devuelve el resultado de proyectar un vector sobre otro.
+		/// En dos vectores unitarios, se toma a un vector como la base canónica de otro, y se obtiene el porcentaje
+		/// de ese vector que comparte con la base canónica.
+		/// Un resultado alternativo de esta operación, también con vectores unitarios, es el coseno del ángulo entre
+		/// ambos vectores.
+		/// </summary>
+		/// <param name="a"></param>
+		/// <param name="b"></param>
+		/// <returns></returns>
 		public static float Dot(Vec3 a, Vec3 b)
 		{
 			return (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
 		}
 
+		/// <summary>
+		/// Devuelve un punto en el espacio resultado de una interpolación lineal entre dos puntos, dada por un valor
+		/// de 0 a 1 llámese T.
+		/// </summary>
+		/// <param name="a"></param>
+		/// <param name="b"></param>
+		/// <param name="t"></param>
+		/// <returns></returns>
 		public static Vec3 Lerp(Vec3 a, Vec3 b, float t)
 		{
 			t = Math.Clamp(t, 0.0f, 1.0f);
@@ -293,6 +335,14 @@ namespace CustomMath
 			);
 		}
 
+		/// <summary>
+		/// Devuelve un punto en el espacio resultado de una interpolación (o extrapolación) lineal entre dos puntos,
+		/// dada por un valor T.
+		/// </summary>
+		/// <param name="a"></param>
+		/// <param name="b"></param>
+		/// <param name="t"></param>
+		/// <returns></returns>
 		public static Vec3 LerpUnclamped(Vec3 a, Vec3 b, float t)
 		{
 			return new Vec3(
@@ -302,6 +352,12 @@ namespace CustomMath
 			);
 		}
 
+		/// <summary>
+		/// Devuelve un vector con todos los componentes máximos entre dos vectores.
+		/// </summary>
+		/// <param name="a"></param>
+		/// <param name="b"></param>
+		/// <returns></returns>
 		public static Vec3 Max(Vec3 a, Vec3 b)
 		{
 			return new Vec3(
@@ -311,6 +367,12 @@ namespace CustomMath
 			);
 		}
 
+		/// <summary>
+		/// Devuelve un vector con todos los componente mínimos entre dos vectores.
+		/// </summary>
+		/// <param name="a"></param>
+		/// <param name="b"></param>
+		/// <returns></returns>
 		public static Vec3 Min(Vec3 a, Vec3 b)
 		{
 			return new Vec3(
@@ -320,6 +382,11 @@ namespace CustomMath
 			);
 		}
 
+		/// <summary>
+		/// Devuelve la magnitud al cuadrado de un vector.
+		/// </summary>
+		/// <param name="vector"></param>
+		/// <returns></returns>
 		public static float SqrMagnitude(Vec3 vector)
 		{
 			return vector.x * vector.x + vector.y * vector.y + vector.z * vector.z;
@@ -343,6 +410,12 @@ namespace CustomMath
 			);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="inDirection"></param>
+		/// <param name="inNormal"></param>
+		/// <returns></returns>
 		public static Vec3 Reflect(Vec3 inDirection, Vec3 inNormal)
 		{
 			float factor = -2.0f * Dot(inDirection, inNormal);
@@ -354,6 +427,11 @@ namespace CustomMath
 			);
 		}
 
+		/// <summary>
+		/// Normaliza un vector dado como parámetro.
+		/// </summary>
+		/// <param name="value"></param>
+		/// <returns></returns>
 		public static Vec3 Normalize(Vec3 value)
 		{
 			float mag = Magnitude(value);
@@ -374,6 +452,12 @@ namespace CustomMath
 			return value;
 		}
 
+		/// <summary>
+		/// Establece los valores del vector instanciado.
+		/// </summary>
+		/// <param name="newX"></param>
+		/// <param name="newY"></param>
+		/// <param name="newZ"></param>
 		public void Set(float newX, float newY, float newZ)
 		{
 			x = newX;
@@ -381,6 +465,10 @@ namespace CustomMath
 			z = newZ;
 		}
 
+		/// <summary>
+		/// Escala un vector por componentes de otro
+		/// </summary>
+		/// <param name="scale"></param>
 		public void Scale(Vec3 scale)
 		{
 			this.x *= scale.x;
@@ -388,6 +476,9 @@ namespace CustomMath
 			this.z *= scale.z;
 		}
 
+		/// <summary>
+		/// Devuelve un vector unitario
+		/// </summary>
 		public void Normalize()
 		{
 			float mag = magnitude;
@@ -410,17 +501,33 @@ namespace CustomMath
 
 		#region Internals
 
+		/// <summary>
+		/// Devuelve un booleano que indica si el objeto pasado como parámetro
+		/// es un vector equivalente al vector instanciado.
+		/// </summary>
+		/// <param name="other"></param>
+		/// <returns></returns>
 		public override bool Equals(object other)
 		{
 			if (!(other is Vec3)) return false;
 			return Equals((Vec3)other);
 		}
 
+		/// <summary>
+		/// Devuelve un booleano que indica si el vector instanciado es igual, componente por componente, al vector
+		/// pasado como parámetro.
+		/// </summary>
+		/// <param name="other"></param>
+		/// <returns></returns>
 		public bool Equals(Vec3 other)
 		{
 			return x == other.x && y == other.y && z == other.z;
 		}
 
+		/// <summary>
+		/// Devuelve un hashcode equivalente al vector instanciado.
+		/// </summary>
+		/// <returns></returns>
 		public override int GetHashCode()
 		{
 			return x.GetHashCode() ^ (y.GetHashCode() << 2) ^ (z.GetHashCode() >> 2);
