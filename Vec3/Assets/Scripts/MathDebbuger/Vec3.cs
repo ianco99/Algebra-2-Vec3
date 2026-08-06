@@ -228,7 +228,7 @@ namespace CustomMath
 
 			if (magProduct < epsilon) return 0f;
 
-			float cos = Math.Clamp(dot / magProduct, -1.0f, 1.0f);//por errores de punto flotante
+			float cos = Math.Clamp(dot / magProduct, -1.0f, 1.0f); //por errores de punto flotante
 
 			return (float)Math.Acos(cos) * (180.0f / (float)Math.PI);
 		}
@@ -273,16 +273,17 @@ namespace CustomMath
 
 		/// <summary>
 		/// Devuelve un vector3 perpendicular a ambos vectores pasados como parámetros.
-		/// Aislamos cada resultado del eje correspondiente para garantizar los 90 grados.
+		/// https://en.wikipedia.org/wiki/Cross_product#Computing
+		///	La forma final de hacer distributiva de cross product entre ambos vectores
 		/// </summary>
 		/// <param name="a"></param>
 		/// <param name="b"></param>
 		/// <returns></returns>
 		public static Vec3 Cross(Vec3 a, Vec3 b)
 		{
-			float x = (a.y * b.z) - (a.z * b.y);
-			float y = (a.z * b.x) - (a.x * b.z);
-			float z = (a.x * b.y) - (a.y * b.x);
+			float x = (a.y * b.z) - (a.z * b.y); //Todos los términos que dan como resultado "i"
+			float y = (a.z * b.x) - (a.x * b.z); //Todos los términos que dan como resultado "j"
+			float z = (a.x * b.y) - (a.y * b.x); //Todos los términos que dan como resultado "k"
 			return new Vec3(x, y, z);
 		}
 
@@ -308,6 +309,7 @@ namespace CustomMath
 		/// Un resultado alternativo de esta operación, también con vectores unitarios, es el coseno del ángulo entre
 		/// ambos vectores.
 		/// </summary>
+		///
 		/// <param name="a"></param>
 		/// <param name="b"></param>
 		/// <returns></returns>
@@ -394,6 +396,7 @@ namespace CustomMath
 
 		public static Vec3 Project(Vec3 vector, Vec3 onNormal)
 		{
+			//Registro la magnitud del vector de entrada
 			float sqrMag = SqrMagnitude(onNormal);
 
 			if (sqrMag < epsilon)
@@ -401,9 +404,12 @@ namespace CustomMath
 				return Zero;
 			}
 
+			//Proyecto vector entrada sobre mi normal
 			float dot = Dot(vector, onNormal);
 
 			return new Vec3(
+				//Multiplico la proyección sobre mi normal.
+				//Divido cada componente por la magnitud del vector original de entrada
 				(onNormal.x * dot) / sqrMag,
 				(onNormal.y * dot) / sqrMag,
 				(onNormal.z * dot) / sqrMag
@@ -411,16 +417,19 @@ namespace CustomMath
 		}
 
 		/// <summary>
-		/// 
+		/// Devuelve un vector3 con componentes reflejados sobre una normal de un plano
 		/// </summary>
 		/// <param name="inDirection"></param>
 		/// <param name="inNormal"></param>
 		/// <returns></returns>
 		public static Vec3 Reflect(Vec3 inDirection, Vec3 inNormal)
 		{
+			//obtengo un factor de dirección de entrada proyectada sobre la normal del plano, duplicado en negativo
 			float factor = -2.0f * Dot(inDirection, inNormal);
 
 			return new Vec3(
+				//Añadiendo estos datos a mi vector original, efectivamente NIEGO los componentes que participan en la normal de mi plano.
+				//Queda un vector entrada con dirección reflejada (negada) sobre la normal de mi plano
 				inDirection.x + (inNormal.x * factor),
 				inDirection.y + (inNormal.y * factor),
 				inDirection.z + (inNormal.z * factor)

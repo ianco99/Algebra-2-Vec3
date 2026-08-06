@@ -3,6 +3,7 @@
 namespace CustomMath
 {
 	// normal ⋅ P + distance = 0
+	// distance = − (normal · P)
 	public struct MyPlane : IEquatable<MyPlane>
 	{
 		#region Variables
@@ -39,7 +40,10 @@ namespace CustomMath
 		/// <param name="inDistance"></param>
 		public MyPlane(Vec3 inNormal, float inDistance)
 		{
+			//El usuario provee una normal, no un punto
 			normal = Vec3.Normalize(inNormal);
+
+			//la distancia es provista por el usuario
 			distance = inDistance;
 		}
 
@@ -81,7 +85,12 @@ namespace CustomMath
 		/// <returns></returns>
 		public static MyPlane Translate(MyPlane plane, Vec3 translation)
 		{
+			//Crea un nuevo plano con misma normal pero distancia al origen modificada
+			//Dot entre vector normalizado y una distancia en metros devuelve una distancia en metros.
 			return new MyPlane(plane.normal, plane.distance - Vec3.Dot(plane.normal, translation));
+			
+			
+			//Resta de distancias porque hago la DIFERENCIA entre mi distancia anterior y una traslación
 		}
 
 		#endregion

@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-using Plane = CustomMath.MyPlane;
 using Vector3 = CustomMath.Vec3;
 
 public class LineSystem : MonoBehaviour
@@ -17,11 +16,11 @@ public class LineSystem : MonoBehaviour
 	[SerializeField] private int rows = 5;
 	[SerializeField] private int columns = 9;
 	[SerializeField] private float renderDis;
-	[SerializeField] private float iterFreq;
+	[SerializeField] private int maxSubdivisions = 7;
+	[SerializeField] private float doorMargin = 1.0f;
 	[SerializeField] private bool logRooms = false;
 
 	private Camera cam;
-	private int sampleCount;
 	private string lastSnapshot = "";
 
 	struct Line
@@ -30,7 +29,22 @@ public class LineSystem : MonoBehaviour
 		public Vector3 dir;
 	}
 
+	struct Sample
+	{
+		public Vector3 point;
+		public int roomIndex;
+		public int depth;
+	}
+
+	struct DoorFrame
+	{
+		public Vector3 left;
+		public Vector3 right;
+		public float threshold;
+	}
+
 	private Line[] lines;
+	private List<Sample>[] raySamples;
 
 	void Start()
 	{
@@ -45,20 +59,32 @@ public class LineSystem : MonoBehaviour
 			cam = GetComponent<Camera>();
 		}
 
-		if (cam == null || renderDis <= 0.0f || iterFreq <= 0.0f)
+		if (cam == null || renderDis <= 0.0f)
 		{
 			return false;
 		}
 
 		rows = Mathf.Max(1, rows);
 		columns = Mathf.Max(1, columns);
+		maxSubdivisions = Mathf.Clamp(maxSubdivisions, 1, 12);
+		doorMargin = Mathf.Max(0.0f, doorMargin);
 
-		if (lines == null || lines.Length != rows * columns)
+		int total = rows * columns;
+
+		if (lines == null || lines.Length != total)
 		{
-			lines = new Line[rows * columns];
+			lines = new Line[total];
 		}
 
-		sampleCount = Mathf.Max(1, Mathf.CeilToInt(renderDis / iterFreq));
+		if (raySamples == null || raySamples.Length != total)
+		{
+			raySamples = new List<Sample>[total];
+
+			for (int i = 0; i < total; i++)
+			{
+				raySamples[i] = new List<Sample>(32);
+			}
+		}
 
 		return true;
 	}
@@ -87,22 +113,117 @@ public class LineSystem : MonoBehaviour
 		}
 	}
 
-	Vector3 SamplePoint(int line, int step)
+	int RoomIndexAt(Vector3 point)
 	{
-		return lines[line].ini + lines[line].dir * Mathf.Min(iterFreq * (step + 1), renderDis);
+		if (allRooms == null)
+		{
+			return -1;
+		}
+
+		for (int i = 0; i < allRooms.Length; i++)
+		{
+			if (allRooms[i] == null)
+			{
+				continue;
+			}
+
+			if (allRooms[i].isPointInside(point))
+			{
+				return i;
+			}
+		}
+
+		return -1;
+	}
+
+	void TraceRays()
+	{
+		for (int i = 0; i < lines.Length; i++)
+		{
+			TraceRay(i);
+		}
+	}
+
+	void TraceRay(int line)
+	{
+		List<Sample> samples = raySamples[line];
+		samples.Clear();
+
+		Vector3 start = lines[line].ini;
+		Vector3 end = lines[line].ini + lines[line].dir * renderDis;
+
+		int roomStart = RoomIndexAt(start);
+		int roomEnd = RoomIndexAt(end);
+
+		AddSample(samples, start, roomStart, 0);
+		Subdivide(samples, start, end, roomStart, roomEnd, 0);
+		AddSample(samples, end, roomEnd, 0);
+	}
+
+	void Subdivide(List<Sample> samples, Vector3 a, Vector3 b, int roomA, int roomB, int depth)
+	{
+		if (roomA == roomB)
+		{
+			return;
+		}
+
+		if (depth >= maxSubdivisions)
+		{
+			return;
+		}
+
+		Vector3 mid = Vector3.Lerp(a, b, 0.5f);
+		int roomMid = RoomIndexAt(mid);
+
+		Subdivide(samples, a, mid, roomA, roomMid, depth + 1);
+		AddSample(samples, mid, roomMid, depth + 1);
+		Subdivide(samples, mid, b, roomMid, roomB, depth + 1);
+	}
+
+	void AddSample(List<Sample> samples, Vector3 point, int roomIndex, int depth)
+	{
+		Sample sample;
+		sample.point = point;
+		sample.roomIndex = roomIndex;
+		sample.depth = depth;
+		samples.Add(sample);
 	}
 
 	public void DrawLines()
 	{
-		Gizmos.color = Color.red;
-
-		for (int i = 0; i < lines.Length; i++)
+		if (raySamples == null)
 		{
-			for (int j = 0; j < sampleCount; j++)
+			return;
+		}
+
+		for (int i = 0; i < raySamples.Length; i++)
+		{
+			List<Sample> samples = raySamples[i];
+
+			if (samples == null || samples.Count == 0)
 			{
-				Gizmos.DrawSphere(SamplePoint(i, j), 0.1f);
+				continue;
+			}
+
+			Gizmos.color = new Color(1.0f, 1.0f, 1.0f, 0.12f);
+			Gizmos.DrawLine(samples[0].point, samples[samples.Count - 1].point);
+
+			for (int j = 0; j < samples.Count; j++)
+			{
+				Gizmos.color = RoomColor(samples[j].roomIndex);
+				Gizmos.DrawSphere(samples[j].point, 0.02f + 0.06f / (1 + samples[j].depth));
 			}
 		}
+	}
+
+	Color RoomColor(int roomIndex)
+	{
+		if (roomIndex < 0)
+		{
+			return new Color(0.35f, 0.35f, 0.35f, 0.6f);
+		}
+
+		return Color.HSVToRGB((roomIndex * 0.618034f) % 1.0f, 0.85f, 1.0f);
 	}
 
 	void Update()
@@ -114,6 +235,7 @@ public class LineSystem : MonoBehaviour
 
 		InitLines();
 		checkPlayerPos();
+		TraceRays();
 
 		if (currentRoom == null)
 		{
@@ -170,23 +292,52 @@ public class LineSystem : MonoBehaviour
 
 		for (int i = 0; i < allRooms.Length; i++)
 		{
+			if (allRooms[i] == null)
+			{
+				continue;
+			}
+
 			allRooms[i].isRoomVisible = false;
 			allRooms[i].isChecked = false;
 		}
 
-		Vector3 playerPos = new Vector3(player.position);
-
-		for (int i = 0; i < allRooms.Length; i++)
+		if (player == null)
 		{
-			if (allRooms[i].isPointInside(playerPos))
-			{
-				currentRoomIndex = i;
-				currentRoom = allRooms[i];
-				currentRoom.isRoomVisible = true;
-				currentRoom.isChecked = true;
-				break;
-			}
+			return;
 		}
+
+		currentRoomIndex = RoomIndexAt(new Vector3(player.position));
+
+		if (currentRoomIndex < 0)
+		{
+			return;
+		}
+
+		currentRoom = allRooms[currentRoomIndex];
+		currentRoom.isRoomVisible = true;
+		currentRoom.isChecked = true;
+	}
+
+	DoorFrame BuildDoorFrame(Transform door)
+	{
+		Vector3 center = new Vector3(door.position);
+		Vector3 doorRight = new Vector3(door.right);
+
+		float halfWidth = door.lossyScale.x * 0.5f;
+
+		DoorFrame frame;
+		frame.left = center - doorRight * halfWidth;
+		frame.right = center + doorRight * halfWidth;
+		frame.threshold = Vector3.Distance(frame.left, frame.right) + doorMargin;
+
+		return frame;
+	}
+
+	bool IsPointInsideDoorFrame(DoorFrame frame, Vector3 point)
+	{
+		float sum = Vector3.Distance(point, frame.left) + Vector3.Distance(point, frame.right);
+
+		return sum <= frame.threshold;
 	}
 
 	void checkAdyacentRooms(Data adjRoom)
@@ -196,38 +347,22 @@ public class LineSystem : MonoBehaviour
 			return;
 		}
 
-		Transform door = adjRoom.door.transform;
+		DoorFrame frame = BuildDoorFrame(adjRoom.door.transform);
 
-		Vector3 doorPos = new Vector3(door.position);
-		Vector3 doorRight = new Vector3(door.right);
-		Vector3 doorUp = new Vector3(door.up);
-
-		float halfWidth = door.lossyScale.x * 0.5f;
-		float halfHeight = door.lossyScale.y * 0.5f;
-
-		Plane facing = new Plane(new Vector3(door.forward), doorPos);
-		Plane left = new Plane(doorRight, doorPos - doorRight * halfWidth);
-		Plane right = new Plane(-doorRight, doorPos + doorRight * halfWidth);
-		Plane bottom = new Plane(doorUp, doorPos - doorUp * halfHeight);
-		Plane top = new Plane(-doorUp, doorPos + doorUp * halfHeight);
-
-		for (int i = 0; i < lines.Length; i++)
+		for (int i = 0; i < raySamples.Length; i++)
 		{
-			for (int j = 0; j < sampleCount; j++)
+			List<Sample> samples = raySamples[i];
+
+			for (int j = 0; j < samples.Count; j++)
 			{
-				Vector3 point = SamplePoint(i, j);
-
-				if (facing.GetSide(point))
+				if (samples[j].roomIndex < 0)
 				{
 					continue;
 				}
 
-				if (!left.GetSide(point) || !right.GetSide(point))
-				{
-					continue;
-				}
+				Vector3 point = samples[j].point;
 
-				if (!bottom.GetSide(point) || !top.GetSide(point))
+				if (!IsPointInsideDoorFrame(frame, point))
 				{
 					continue;
 				}
@@ -260,6 +395,7 @@ public class LineSystem : MonoBehaviour
 		if (!Application.isPlaying)
 		{
 			InitLines();
+			TraceRays();
 		}
 
 		DrawLines();
