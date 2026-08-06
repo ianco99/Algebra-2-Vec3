@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+using Plane = CustomMath.MyPlane;
 using Vector3 = CustomMath.Vec3;
 
 public class LineSystem : MonoBehaviour
@@ -19,6 +20,11 @@ public class LineSystem : MonoBehaviour
 	[SerializeField] private int maxSubdivisions = 7;
 	[SerializeField] private float doorMargin = 1.0f;
 	[SerializeField] private bool logRooms = false;
+
+	private const float parallelTolerance = 0.0001f;
+	private const float hitTolerance = 0.0001f;
+	private const float faceTolerance = 0.001f;
+	private const float wallOffset = 0.01f;
 
 	private Camera cam;
 	private string lastSnapshot = "";
@@ -45,6 +51,7 @@ public class LineSystem : MonoBehaviour
 
 	private Line[] lines;
 	private List<Sample>[] raySamples;
+	private bool[] rayHitWall;
 
 	void Start()
 	{
@@ -84,6 +91,11 @@ public class LineSystem : MonoBehaviour
 			{
 				raySamples[i] = new List<Sample>(32);
 			}
+		}
+
+		if (rayHitWall == null || rayHitWall.Length != total)
+		{
+			rayHitWall = new bool[total];
 		}
 
 		return true;
@@ -144,13 +156,112 @@ public class LineSystem : MonoBehaviour
 		}
 	}
 
+	bool IsOnRoomFace(Room room, int planeIndex, Vector3 point)
+	{
+		for (int i = 0; i < room.roomPlanes.Length; i++)
+		{
+			if (i == planeIndex)
+			{
+				continue;
+			}
+
+			if (room.roomPlanes[i].GetDistanceToPoint(point) < -faceTolerance)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	bool IsDoorwayPoint(Room room, Vector3 point)
+	{
+		for (int i = 0; i < room.adyacentRooms.Count; i++)
+		{
+			Data link = room.adyacentRooms[i];
+
+			if (link == null || link.door == null)
+			{
+				continue;
+			}
+
+			if (IsPointInsideDoorFrame(BuildDoorFrame(link.door.transform), point))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool RaycastWalls(Vector3 origin, Vector3 dir, out Vector3 hit)
+	{
+		float best = renderDis;
+		bool found = false;
+
+		for (int r = 0; allRooms != null && r < allRooms.Length; r++)
+		{
+			Room room = allRooms[r];
+
+			if (room == null || room.roomPlanes == null)
+			{
+				continue;
+			}
+
+			for (int i = 0; i < room.roomPlanes.Length; i++)
+			{
+				Plane plane = room.roomPlanes[i];
+
+				float denom = Vector3.Dot(plane.normal, dir);
+
+				if (Mathf.Abs(denom) < parallelTolerance)
+				{
+					continue;
+				}
+
+				float t = -plane.GetDistanceToPoint(origin) / denom;
+
+				if (t <= hitTolerance || t >= best)
+				{
+					continue;
+				}
+
+				Vector3 point = origin + dir * t;
+
+				if (!IsOnRoomFace(room, i, point))
+				{
+					continue;
+				}
+
+				if (IsDoorwayPoint(room, point))
+				{
+					continue;
+				}
+
+				best = t;
+				found = true;
+			}
+		}
+
+		if (found)
+		{
+			best = Mathf.Max(0.0f, best - wallOffset);
+		}
+
+		hit = origin + dir * best;
+
+		return found;
+	}
+
 	void TraceRay(int line)
 	{
 		List<Sample> samples = raySamples[line];
 		samples.Clear();
 
 		Vector3 start = lines[line].ini;
-		Vector3 end = lines[line].ini + lines[line].dir * renderDis;
+		Vector3 end;
+
+		rayHitWall[line] = RaycastWalls(start, lines[line].dir, out end);
 
 		int roomStart = RoomIndexAt(start);
 		int roomEnd = RoomIndexAt(end);
@@ -212,6 +323,12 @@ public class LineSystem : MonoBehaviour
 			{
 				Gizmos.color = RoomColor(samples[j].roomIndex);
 				Gizmos.DrawSphere(samples[j].point, 0.02f + 0.06f / (1 + samples[j].depth));
+			}
+
+			if (rayHitWall != null && i < rayHitWall.Length && rayHitWall[i])
+			{
+				Gizmos.color = Color.white;
+				Gizmos.DrawWireCube(samples[samples.Count - 1].point, new Vector3(0.1f, 0.1f, 0.1f));
 			}
 		}
 	}
